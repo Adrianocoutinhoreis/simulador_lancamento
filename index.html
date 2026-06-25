@@ -1,12 +1,269 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Simulador Lançamento</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO Meta Tags -->
+    <title>Simulador de Lançamento Oblíquo 🚀</title>
+    <meta name="description" content="Um jogo educativo de física para crianças! Complete fases na Terra, Lua, Marte e Júpiter. Ajuste a força e velocidade do lançador e destrua as caixas!">
+    <meta name="keywords" content="jogo de fisica, lançamento obliquo, angry birds educativo, gravidade planetas, jogo infantil escolar">
+    <meta name="author" content="Antigravity Ide IDE">
+
+    <!-- CSS Styling Link -->
+    <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
-  <h1>Bem-vindo ao meu projeto!</h1>
-  <p>Este é o início do site.</p>
+
+    <!-- 1. TELA INICIAL: Escolha de Personagem (Brinquedo) -->
+    <div id="start-screen" class="start-screen" role="dialog" aria-modal="true" aria-labelledby="start-title">
+        <div class="start-content">
+            <h2 id="start-title">🔬 Simulador de Lançamento Oblíquo 🚀</h2>
+            <p class="start-subtitle">Escolha o seu brinquedo de arremesso para começar a missão:</p>
+            
+            <div class="char-grid">
+                <button class="char-card" data-proj="tomate" id="char-tomate">
+                    <span class="char-emoji">🍅</span>
+                    <h3>Tomatinho</h3>
+                    <p>Fofinho e explode em suco vermelho ao cair!</p>
+                </button>
+                <button class="char-card" data-proj="balao" id="char-balao">
+                    <span class="char-emoji">🎈</span>
+                    <h3>Balão de Água</h3>
+                    <p>Leve e espalha gotas de água para todo lado!</p>
+                </button>
+                <button class="char-card" data-proj="sapo" id="char-sapo">
+                    <span class="char-emoji">🐸</span>
+                    <h3>Sapo Saltador</h3>
+                    <p>Adora dar saltos altos e coaxar feliz!</p>
+                </button>
+                <button class="char-card" data-proj="foguete" id="char-foguete">
+                    <span class="char-emoji">🚀</span>
+                    <h3>Mini Foguete</h3>
+                    <p>Deixa um rastro mágico de estrelas de fumaça!</p>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. TELA DO JOGO PRINCIPAL -->
+    <main class="app-container">
+        
+        <!-- Cabeçalho Principal -->
+        <header class="game-header">
+            <div class="header-left">
+                <!-- Mostra a fase ativa e o planeta atual -->
+                <h1 id="hud-level-title">Fase 1: Terra 🌍</h1>
+                <p id="hud-level-desc">Gravidade normal! Ajude a quebrar os alvos de madeira.</p>
+            </div>
+            <div class="header-right">
+                <!-- Botão de Ajuda -->
+                <button class="btn-help" id="btn-help" aria-label="Ajuda: Como Funciona?">💡 Como Funciona?</button>
+            </div>
+        </header>
+
+        <!-- Seção de Simulação e Controles -->
+        <section class="main-layout" aria-label="Área de Simulação e Controles">
+            
+            <!-- Coluna da Esquerda: Área Gráfica (Canvas) e Mascote -->
+            <div class="simulation-column">
+                
+                <div class="canvas-wrapper">
+                    <!-- O elemento canvas onde todo o jogo/física é desenhado -->
+                    <canvas id="sim-canvas"></canvas>
+                </div>
+
+                <!-- Mascote Explicativo de Física -->
+                <div class="mascot-panel" id="mascot-section">
+                    <div class="mascot" aria-label="Mascote Robô">🤖</div>
+                    <div class="tip-bubble" id="hud-tip" role="status">
+                        Olá, jovem cientista! Puxe o canhão para trás para mirar ou clique em <b>Lançar</b>! Tente quebrar as caixas de madeira!
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Coluna da Direita: Controles Interativos Compactos -->
+            <div class="controls-column" id="controls-panel">
+                
+                <!-- Dados do Projétil Ativo -->
+                <div class="active-toy-card">
+                    <span class="toy-emoji" id="hud-toy-emoji">🍅</span>
+                    <div>
+                        <div class="label-toy">Brinquedo Ativo:</div>
+                        <div class="toy-name" id="hud-toy-name">Tomatinho</div>
+                    </div>
+                </div>
+
+                <!-- Tentativas Restantes -->
+                <div class="active-toy-card" id="hud-shots-card" style="background: #e8f5e9; border-color: #4caf50; margin-top: 8px;">
+                    <span class="toy-emoji">🎯</span>
+                    <div>
+                        <div class="label-toy">Arremessos Restantes:</div>
+                        <div class="toy-name" id="hud-shots">3 / 3</div>
+                    </div>
+                </div>
+
+                <!-- Controles Físicos (Sliders) -->
+                <div class="control-section slider-group">
+                    
+                    <!-- Slider de Ângulo (Graus) -->
+                    <div class="slider-container">
+                        <div class="slider-header">
+                            <label for="angle-slider">📐 Inclinação (Ângulo)</label>
+                            <span class="value-badge" id="angle-value">45°</span>
+                        </div>
+                        <input type="range" id="angle-slider" min="5" max="85" value="45" aria-valuemin="5" aria-valuemax="85" aria-valuenow="45">
+                    </div>
+
+                    <!-- Slider de Velocidade (Força) -->
+                    <div class="slider-container">
+                        <div class="slider-header">
+                            <label for="speed-slider">⚡ Força (Velocidade)</label>
+                            <span class="value-badge" id="speed-value">15 m/s</span>
+                        </div>
+                        <input type="range" id="speed-slider" min="5" max="35" value="15" aria-valuemin="5" aria-valuemax="35" aria-valuenow="15">
+                    </div>
+
+                </div>
+
+                <!-- Interruptores Educacionais -->
+                <div class="switches-group">
+                    <label class="switch-container">
+                        <span>🏹 Mostrar Flechas de Força</span>
+                        <label class="switch">
+                            <input type="checkbox" id="show-vectors">
+                            <span class="slider-toggle"></span>
+                        </label>
+                    </label>
+
+                    <label class="switch-container">
+                        <span>📈 Mostrar Linha da Trajetória</span>
+                        <label class="switch">
+                            <input type="checkbox" id="show-trajectory" checked>
+                            <span class="slider-toggle"></span>
+                        </label>
+                    </label>
+                </div>
+
+                <!-- Botões de Disparo e Ação -->
+                <div class="button-grid">
+                    <button class="btn btn-launch" id="btn-launch" aria-label="Lançar Projétil">
+                         LANÇAR!
+                    </button>
+                    <button class="btn btn-reset" id="btn-reset" aria-label="Limpar Simulação">
+                         LIMPAR
+                    </button>
+                </div>
+
+                <!-- Botões Auxiliares (Som e Troca de Personagem removidos) -->
+                <div class="sub-buttons">
+                    <button class="btn btn-secondary" id="btn-restart-game" aria-label="Reiniciar o jogo completo">
+                        🔄 Reiniciar Jogo
+                    </button>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- Dashboard da HUD (Resultados) -->
+        <section class="hud-dashboard" aria-label="Resultados e Conquistas">
+            
+            <div class="metric-card">
+                <span class="icon">⏱️</span>
+                <h4>Tempo no Ar</h4>
+                <div class="number" id="hud-time">0.00s</div>
+                <div class="comparison">Cronômetro de voo</div>
+            </div>
+
+            <div class="metric-card">
+                <span class="icon">📈</span>
+                <h4>Altura Máxima</h4>
+                <div class="number" id="hud-height">0.0m</div>
+                <div class="comparison" id="hud-height-desc">Pronto para medir!</div>
+            </div>
+
+            <div class="metric-card">
+                <span class="icon">📏</span>
+                <h4>Distância Total</h4>
+                <div class="number" id="hud-distance">0.0m</div>
+                <div class="comparison" id="hud-distance-desc">Pronto para medir!</div>
+            </div>
+
+            <div class="metric-card score-card">
+                <span class="icon">🏆</span>
+                <h4>Pontos Ganhos</h4>
+                <div class="number" id="hud-score">0</div>
+                <div class="comparison">Destrua as caixas!</div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- 3. MODAL DE TRANSIÇÃO DE FASE (aparece ao vencer) -->
+    <div id="phase-transition-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="phase-modal-title">
+        <div class="phase-modal-content">
+            <!-- Troféu e título -->
+            <div class="phase-modal-trophy" id="phase-modal-trophy">🏆</div>
+            <h2 id="phase-modal-title" class="phase-modal-title">Fase Concluída!</h2>
+            <p id="phase-modal-subtitle" class="phase-modal-subtitle">Você destruiu todas as caixas!</p>
+
+            <!-- Divider -->
+            <div class="phase-modal-divider"></div>
+
+            <!-- Próxima fase -->
+            <div class="phase-modal-next" id="phase-modal-next">
+                <div class="phase-modal-next-label">Próxima Parada:</div>
+                <div class="phase-modal-planet-row">
+                    <span class="phase-modal-planet-emoji" id="phase-modal-planet-emoji">🌕</span>
+                    <div>
+                        <div class="phase-modal-planet-name" id="phase-modal-planet-name">Lua</div>
+                        <div class="phase-modal-planet-desc" id="phase-modal-planet-desc">Gravidade super fraca!</div>
+                    </div>
+                </div>
+                <div class="phase-modal-fact" id="phase-modal-fact">💡 Os astronautas na Lua conseguem dar pulos gigantescos!</div>
+            </div>
+
+            <!-- Botão de avançar -->
+            <button class="btn phase-modal-btn" id="btn-phase-next" aria-label="Ir para a próxima fase">
+                Próxima Fase ➡️
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. MODAL DE AJUDA: Explicação física infantil -->
+    <div id="help-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-content">
+            <button class="modal-close" id="modal-close" aria-label="Fechar Modal">✖</button>
+            <h2 id="modal-title">🧐 Como a Ciência faz isso acontecer?</h2>
+            <p>
+                Quando você arremessa um brinquedo no ar, ele realiza um movimento chamado <b>lançamento oblíquo</b>. Ele faz uma curva perfeita (chamada parábola) porque duas forças agem juntas:
+            </p>
+            <div class="modal-bullets">
+                <div class="modal-bullet">
+                    <h3>📐 O Ângulo</h3>
+                    <p>Decide se você vai empurrar o brinquedo mais para cima (altura) ou mais para a frente (distância). Se mirar muito para cima, ele cai rápido; se mirar muito reto, bate logo no chão!</p>
+                </div>
+                <div class="modal-bullet">
+                    <h3>⚡ A Força (Velocidade)</h3>
+                    <p>Quanto mais força você usa na puxada, mais energia o objeto ganha para voar alto e ir longe!</p>
+                </div>
+                <div class="modal-bullet">
+                    <h3>🪐 A Gravidade</h3>
+                    <p>É a força invisível do planeta que puxa tudo de volta para o chão. A Lua deixa tudo levinho por ter gravidade fraca, já Júpiter puxa os objetos de volta num piscar de olhos!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Files (Loaded in correct order) -->
+    <script src="js/config.js?v=6"></script>
+    <script src="js/physics.js?v=6"></script>
+    <script src="js/renderer.js?v=6"></script>
+    <script src="js/ui.js?v=6"></script>
+    <script src="js/main.js?v=6"></script>
+
 </body>
 </html>
-
