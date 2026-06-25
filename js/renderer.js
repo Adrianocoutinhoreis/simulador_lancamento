@@ -717,7 +717,7 @@ const Renderer = {
     },
 
     /**
-     * Desenha as setas dos vetores de velocidade.
+     * Desenha as setas dos vetores de velocidade com labels visíveis.
      * @param {number} x - Posição X física.
      * @param {number} y - Posição Y física.
      * @param {number} vx - Velocidade física horizontal.
@@ -728,27 +728,210 @@ const Renderer = {
         const start = this.physToCanvas(x, y);
         
         // Multiplicador visual para a seta do vetor não ficar minúscula ou gigante
-        const vectorScale = 2.0;
+        const vectorScale = 2.2;
 
-        // 1. Vetor Horizontal (Vx) - Verde Limão
-        if (Math.abs(vx) > 0.1) {
-            const endX = start.x + (vx * vectorScale * this.pixelsPerMeter * 0.2);
-            this.drawArrow(start.x, start.y, endX, start.y, "#2ecc71", 3);
-            ctx.fillStyle = "#2ecc71";
-            ctx.font = "bold 11px Outfit, sans-serif";
+        // 1. Vetor Horizontal (Vx) - Azul Celeste
+        if (Math.abs(vx) > 0.05) {
+            const endX = start.x + (vx * vectorScale * this.pixelsPerMeter * 0.22);
+            this.drawArrow(start.x, start.y, endX, start.y, "#00b4d8", 4);
+
+            ctx.save();
+            ctx.fillStyle = "#003049";
+            ctx.font = "bold 12px Outfit, sans-serif";
+            const bg = `${Math.abs(vx).toFixed(1)} m/s`;
+            const labelX = endX + (vx > 0 ? 6 : -6);
             ctx.textAlign = vx > 0 ? "left" : "right";
-            ctx.fillText(`Vx: ${Math.abs(vx).toFixed(1)} m/s`, endX + (vx > 0 ? 5 : -5), start.y + 4);
+            // Caixa de fundo para legibilidade
+            const tw = ctx.measureText(`Vx: ${bg}`).width + 6;
+            ctx.fillStyle = "rgba(0, 70, 120, 0.75)";
+            ctx.beginPath();
+            ctx.roundRect(vx > 0 ? labelX - 3 : labelX - tw + 3, start.y - 10, tw, 20, 4);
+            ctx.fill();
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(`Vx: ${bg}`, labelX, start.y + 4);
+            ctx.restore();
         }
 
-        // 2. Vetor Vertical (Vy) - Azul Celeste/Ciano
-        if (Math.abs(vy) > 0.1) {
-            const endY = start.y - (vy * vectorScale * this.pixelsPerMeter * 0.2); // Seta para cima quando Vy é positivo (física)
-            this.drawArrow(start.x, start.y, start.x, endY, "#3498db", 3);
-            ctx.fillStyle = "#3498db";
-            ctx.font = "bold 11px Outfit, sans-serif";
+        // 2. Vetor Vertical (Vy) - Verde se subindo, Vermelho se descendo
+        if (Math.abs(vy) > 0.05) {
+            const endY = start.y - (vy * vectorScale * this.pixelsPerMeter * 0.22);
+            const vyColor = vy > 0 ? "#06d6a0" : "#ef476f";
+            this.drawArrow(start.x, start.y, start.x, endY, vyColor, 4);
+
+            ctx.save();
             ctx.textAlign = "left";
-            ctx.fillText(`Vy: ${vy.toFixed(1)} m/s`, start.x + 8, endY + (vy > 0 ? -5 : 12));
+            const bg2 = `${Math.abs(vy).toFixed(1)} m/s`;
+            const dir = vy > 0 ? "↑" : "↓";
+            const tw2 = ctx.measureText(`Vy: ${dir}${bg2}`).width + 6;
+            ctx.font = "bold 12px Outfit, sans-serif";
+            ctx.fillStyle = `rgba(${vy > 0 ? "6,100,60" : "120,20,40"}, 0.8)`;
+            ctx.beginPath();
+            ctx.roundRect(start.x + 5, endY - 10, tw2, 20, 4);
+            ctx.fill();
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(`Vy: ${dir}${bg2}`, start.x + 8, endY + 4);
+            ctx.restore();
         }
+    },
+
+    /**
+     * Desenha o painel HUD de vetores em tempo real no canto superior do canvas.
+     * @param {number} vx - Velocidade horizontal atual.
+     * @param {number} vy - Velocidade vertical atual.
+     * @param {number} v0x - Velocidade horizontal inicial (para normalização das barras).
+     * @param {number} v0y - Velocidade vertical inicial (para normalização das barras).
+     */
+    drawVectorPanel(vx, vy, v0x, v0y) {
+        const ctx = this.ctx;
+        if (!ctx) return;
+
+        const panelX = 12;
+        const panelY = 12;
+        const panelW = 210;
+        const panelH = 115;
+        const barW = 130;
+        const barH = 14;
+
+        // Fundo com glassmorphism
+        ctx.save();
+        ctx.globalAlpha = 0.88;
+        ctx.fillStyle = "#0a0e27";
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, panelW, panelH, 10);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+
+        // Borda sutil
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Título
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 11px Outfit, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("📊 Vetores em Tempo Real", panelX + 10, panelY + 18);
+
+        // --- Vx ---
+        const vxRatio = Math.min(1, Math.abs(vx) / Math.max(1, Math.abs(v0x)));
+        ctx.fillStyle = "rgba(255,255,255,0.12)";
+        ctx.beginPath();
+        ctx.roundRect(panelX + 10, panelY + 28, barW, barH, 5);
+        ctx.fill();
+        ctx.fillStyle = "#00b4d8";
+        ctx.beginPath();
+        ctx.roundRect(panelX + 10, panelY + 28, barW * vxRatio, barH, 5);
+        ctx.fill();
+        ctx.fillStyle = "#e0f7ff";
+        ctx.font = "bold 10px Outfit, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(`Vx = ${Math.abs(vx).toFixed(1)} m/s  (horizontal)`, panelX + 10, panelY + 53);
+
+        // --- Vy ---
+        const vyRatio = Math.min(1, Math.abs(vy) / Math.max(1, Math.abs(v0y)));
+        const vyColor = vy >= 0 ? "#06d6a0" : "#ef476f";
+        const vyLabel = vy >= 0 ? "↑ subindo" : "↓ descendo";
+        ctx.fillStyle = "rgba(255,255,255,0.12)";
+        ctx.beginPath();
+        ctx.roundRect(panelX + 10, panelY + 60, barW, barH, 5);
+        ctx.fill();
+        ctx.fillStyle = vyColor;
+        ctx.beginPath();
+        ctx.roundRect(panelX + 10, panelY + 60, barW * vyRatio, barH, 5);
+        ctx.fill();
+        ctx.fillStyle = "#e0ffe8";
+        ctx.font = "bold 10px Outfit, sans-serif";
+        ctx.fillText(`Vy = ${vy.toFixed(1)} m/s  (${vyLabel})`, panelX + 10, panelY + 85);
+
+        // --- Velocidade resultante ---
+        const vTotal = Math.sqrt(vx * vx + vy * vy);
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(panelX + 8, panelY + 90);
+        ctx.lineTo(panelX + panelW - 8, panelY + 90);
+        ctx.stroke();
+        ctx.fillStyle = "#ffd166";
+        ctx.font = "bold 10px Outfit, sans-serif";
+        ctx.fillText(`|V| = √(Vx² + Vy²) = ${vTotal.toFixed(1)} m/s`, panelX + 10, panelY + 106);
+
+        ctx.restore();
+    },
+
+    /**
+     * Desenha alvos flutuantes suspensos no ar para a Fase 5 (Análise de Vetores).
+     * @param {Array} targets - Array de { x, y, width, height, isHit }
+     */
+    drawFloatingTargets(targets) {
+        const ctx = this.ctx;
+        if (!targets || targets.length === 0) return;
+
+        targets.forEach(target => {
+            const screenPos = this.physToCanvas(target.x, target.y);
+            const w = target.width * this.pixelsPerMeter;
+            const h = target.height * this.pixelsPerMeter;
+
+            ctx.save();
+
+            if (target.isHit) {
+                // Alvo já atingido: verde com checkmark
+                ctx.globalAlpha = 0.4;
+                ctx.fillStyle = "#06d6a0";
+                ctx.beginPath();
+                ctx.roundRect(screenPos.x - w / 2, screenPos.y - h, w, h, 6);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = "#06d6a0";
+                ctx.font = `bold ${Math.max(16, h * 0.6)}px sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("✅", screenPos.x, screenPos.y - h / 2);
+            } else {
+                // Fundo do alvo: laranja/ouro
+                const grad = ctx.createLinearGradient(screenPos.x - w/2, screenPos.y - h, screenPos.x + w/2, screenPos.y);
+                grad.addColorStop(0, "#ffb703");
+                grad.addColorStop(1, "#fb8500");
+                ctx.fillStyle = grad;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = "rgba(255, 183, 3, 0.6)";
+                ctx.beginPath();
+                ctx.roundRect(screenPos.x - w / 2, screenPos.y - h, w, h, 6);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Borda
+                ctx.strokeStyle = "#f4a261";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Ícone central e label de altura
+                ctx.fillStyle = "#003049";
+                ctx.font = `bold ${Math.max(12, h * 0.5)}px sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("🎯", screenPos.x, screenPos.y - h / 2);
+
+                // Label com a altura do alvo em metros
+                ctx.fillStyle = "rgba(255,255,255,0.9)";
+                ctx.font = "bold 10px Outfit, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "top";
+                ctx.fillText(`${target.y.toFixed(1)}m`, screenPos.x, screenPos.y - h - 16);
+
+                // Linha pontilhada do solo ao alvo
+                ctx.setLineDash([4, 4]);
+                ctx.strokeStyle = "rgba(255, 183, 3, 0.35)";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                const groundY = this.canvas.height - this.groundYOffset;
+                ctx.moveTo(screenPos.x, groundY);
+                ctx.lineTo(screenPos.x, screenPos.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            ctx.restore();
+        });
     },
 
     /**

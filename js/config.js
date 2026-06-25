@@ -86,9 +86,9 @@ const CONFIG = {
         },
         foguete: {
             id: "foguete",
-            name: "Mini Foguete 🚀",
-            emoji: "🚀",
-            radius: 11,
+            name: "Mini Bomba 💣",
+            emoji: "💣",
+            radius: 5,
             mass: 0.10,
             trailColor: "rgba(255, 165, 0, 0.9)",
             impactType: "smoke",
@@ -131,6 +131,77 @@ const CONFIG = {
         "A gravidade é como um ímã invisível do chão que puxa tudo para baixo o tempo todo.",
         "Se você jogar com muita força (alta velocidade), o tempo no ar será muito maior!",
         "Olhe as flechas azul e amarela! Elas mostram a velocidade empurrando e a gravidade puxando!"
+    ],
+
+    // Dicas específicas para a Fase 5 (Análise de Vetores)
+    VECTOR_TIPS: [
+        "🔵 Vx (horizontal) é CONSTANTE! Ele nunca muda durante o voo porque não há força empurrando para os lados.",
+        "🟢 Vy começa positivo (subindo) e vai diminuindo até zero no ponto mais alto!",
+        "🔴 No ponto mais alto, Vy = 0! O projétil para de subir antes de começar a cair.",
+        "⬇️ Depois do ponto mais alto, Vy fica negativo: o projétil está caindo!",
+        "📐 O ângulo de lançamento divide a velocidade inicial em duas partes: Vx = V₀·cos(θ) e Vy = V₀·sen(θ)",
+        "🏹 As duas flechas juntas formam a velocidade total do projétil!",
+        "🎯 Para acertar um alvo no ar, você precisa calcular em que momento Vy coloca o projétil na altura certa!"
+    ],
+
+    // Banco de perguntas para o quiz da Fase 5
+    VECTOR_QUIZ_QUESTIONS: [
+        {
+            id: "vx_constant",
+            context: "meio_do_voo",
+            question: "Durante todo o voo, o que acontece com a componente horizontal Vx?",
+            options: ["Vx diminui por causa da gravidade", "Vx permanece constante (não muda!)", "Vx aumenta conforme o projétil acelera"],
+            correct: 1,
+            explanation: "✅ Correto! Vx é CONSTANTE porque não existe força horizontal atuando sobre o projétil (sem atrito do ar). Apenas a gravidade age, e ela é vertical!"
+        },
+        {
+            id: "vy_apex",
+            context: "ponto_mais_alto",
+            question: "No ponto mais alto da trajetória (ápice), qual é o valor de Vy?",
+            options: ["Vy é máximo (mais rápido subindo)", "Vy = 0 (zero!)", "Vy é negativo (caindo)"],
+            correct: 1,
+            explanation: "✅ Excelente! No ápice, o projétil para momentaneamente de subir, então Vy = 0. A gravidade ainda está atuando e vai inverter o sentido de Vy!"
+        },
+        {
+            id: "vy_direction_up",
+            context: "subindo",
+            question: "O projétil está subindo. Qual sinal tem Vy nesse momento?",
+            options: ["Vy é negativo (pra baixo)", "Vy é zero", "Vy é positivo (pra cima)"],
+            correct: 2,
+            explanation: "✅ Perfeito! Enquanto o projétil sobe, Vy é positivo. A gravidade vai diminuindo Vy aos poucos até chegar a zero no ponto mais alto."
+        },
+        {
+            id: "vy_direction_down",
+            context: "descendo",
+            question: "O projétil está descendo. O que aconteceu com Vy?",
+            options: ["Vy ainda é positivo mas pequeno", "Vy ficou negativo (inverteu!)", "Vy voltou ao valor inicial"],
+            correct: 1,
+            explanation: "✅ Isso mesmo! Depois do ápice, a gravidade continua acelerando o projétil para baixo, fazendo Vy ficar negativo (sentido descendente)."
+        },
+        {
+            id: "angle_components",
+            context: "lancamento",
+            question: "Se lançar com ângulo de 45°, quem é maior: Vx ou Vy?",
+            options: ["Vx é maior que Vy", "Vy é maior que Vx", "Vx e Vy são iguais!"],
+            correct: 2,
+            explanation: "✅ Correto! A 45°, sen(45°) = cos(45°) ≈ 0,707. Então Vx = Vy! Por isso 45° é o ângulo de maior alcance horizontal."
+        },
+        {
+            id: "high_angle",
+            context: "lancamento",
+            question: "Com ângulo de 70°, qual componente é maior na largada?",
+            options: ["Vx (componente horizontal)", "Vy (componente vertical)", "As duas são iguais"],
+            correct: 1,
+            explanation: "✅ Exato! Com ângulo alto (>45°), sen(70°) > cos(70°), então Vy > Vx. O projétil sobe muito alto mas não vai tão longe horizontalmente!"
+        },
+        {
+            id: "gravity_effect",
+            context: "meio_do_voo",
+            question: "A gravidade afeta qual componente da velocidade?",
+            options: ["Só Vx (horizontal)", "Só Vy (vertical)", "As duas, Vx e Vy"],
+            correct: 1,
+            explanation: "✅ Correto! A gravidade só puxa para baixo (verticalmente), então só afeta Vy. Vx fica inalterado durante todo o voo!"
+        }
     ]
 };
 

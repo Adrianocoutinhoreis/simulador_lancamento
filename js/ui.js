@@ -14,6 +14,7 @@ const UI = {
     btnReset: null,
     btnRestartGame: null,
     btnNextLevel: null,
+    btnPause: null,
     hudShots: null,
     
     // Tela Inicial e Modal de Ajuda
@@ -73,6 +74,7 @@ const UI = {
         this.btnReset = document.getElementById("btn-reset");
         this.btnRestartGame = document.getElementById("btn-restart-game");
         this.btnNextLevel = document.getElementById("btn-next-level");
+        this.btnPause = document.getElementById("btn-pause");
         this.hudShots = document.getElementById("hud-shots");
 
         // Tela de Seleção Inicial
@@ -137,6 +139,20 @@ const UI = {
             if (typeof MainApp !== "undefined") MainApp.reset();
             this.showNewTip();
         });
+
+        if (this.btnPause) {
+            this.btnPause.addEventListener("click", () => {
+                if (typeof MainApp !== "undefined") {
+                    MainApp.isPaused = !MainApp.isPaused;
+                    this.btnPause.innerHTML = MainApp.isPaused ? "▶️ Play" : "⏸️ Pause";
+                    if (MainApp.isPaused) {
+                        this.btnPause.style.background = "#ffcc00";
+                    } else {
+                        this.btnPause.style.background = "rgba(255, 255, 255, 0.8)";
+                    }
+                }
+            });
+        }
 
         // Botão de Reiniciar o jogo completo
         this.btnRestartGame.addEventListener("click", () => {

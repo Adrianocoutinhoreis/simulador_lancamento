@@ -12,7 +12,8 @@ const MainApp = {
         { level: 1, planet: "terra", targetX: 35, desc: "Fase 1: Terra 🌍. Gravidade normal! Acerte os alvos de madeira." },
         { level: 2, planet: "lua", targetX: 75, desc: "Fase 2: Lua 🌕. Gravidade super fraca! Veja como o projétil flutua." },
         { level: 3, planet: "marte", targetX: 55, desc: "Fase 3: Marte 🔴. Solo vermelho e gravidade média. Mira calibrada pela IA!" },
-        { level: 4, planet: "jupiter", targetX: 25, desc: "Fase 4: Júpiter 🪐. Gravidade gigantesca! Atire com muita força." }
+        { level: 4, planet: "jupiter", targetX: 25, desc: "Fase 4: Júpiter 🪐. Gravidade gigantesca! Atire com muita força." },
+        { level: 5, planet: "terra", targetX: 40, desc: "Fase 5: Análise de Vetores 🔬. Observe Vx e Vy em tempo real e acerte os alvos flutuantes!", mode: "vetores" }
     ],
     currentLevel: 1,
 
@@ -36,6 +37,12 @@ const MainApp = {
     // Objetos e histórico extras
     crates: [],
     previousTrajectoryPoints: [],
+    floatingTargets: [],        // Alvos flutuantes da Fase 5
+    vectorQuizAsked: false,     // Controla se o quiz já foi exibido após o lançamento
+    lastLaunchVx: 0,            // Armazena Vx inicial do lançamento para o quiz
+    lastLaunchVy: 0,            // Armazena Vy inicial do lançamento para o quiz
+    lastLaunchAngle: 0,         // Armazena ângulo do lançamento para o quiz
+    isPaused: false,            // Controle de pausa
 
     // Resultados
     flightStats: null,
@@ -84,16 +91,37 @@ const MainApp = {
         this.isTargetHit = false;
         UI.showNextLevelButton(false);
         this.resetSimulationState();
+        this.floatingTargets = [];
         
         if (levelNum <= this.levels.length) {
             const cfg = this.levels[levelNum - 1];
             this.currentGravity = CONFIG.PLANETS[cfg.planet].gravity;
             Renderer.setPlanet(cfg.planet);
             this.targetX = cfg.targetX;
-            this.initCrates();
+
+            if (cfg.mode === "vetores") {
+                // Fase 5: Modo Vetores
+                this.initFloatingTargets();
+                // Forçar exibição dos vetores na fase 5
+                UI.showVectorsCheck.checked = true;
+                UI.showVectors = true;
+                UI.showVectorsCheck.disabled = true;
+                UI.showVectorsCheck.parentElement.title = "Vetores obrigatórios na Fase de Análise!";
+                this.maxShots = 5;
+            } else {
+                // Outras fases: reabilitar o toggle de vetores
+                UI.showVectorsCheck.disabled = false;
+                UI.showVectorsCheck.parentElement.title = "";
+                this.initCrates();
+            }
+
             UI.updateLevelHUD(cfg.level, CONFIG.PLANETS[cfg.planet].name, cfg.desc);
         } else {
-            // Modo Infinito (Fase 5+) - Gravidades e distâncias aleatórias geradas pela "IA"
+            // Modo Infinito (Fase 6+) - Gravidades e distâncias aleatórias geradas pela "IA"
+            // Reabilitar toggle de vetores ao entrar no modo infinito
+            UI.showVectorsCheck.disabled = false;
+            UI.showVectorsCheck.parentElement.title = "";
+
             const planetKeys = Object.keys(CONFIG.PLANETS);
             const planet = planetKeys[Math.floor(Math.random() * planetKeys.length)];
             const targetX = Math.floor(Math.random() * 65) + 20; // Entre 20 e 85 metros
@@ -116,6 +144,11 @@ const MainApp = {
     nextLevel() {
         this.currentLevel++;
         this.loadLevel(this.currentLevel);
+
+        // Reabilitar vetores toggle ao sair da fase 5
+        if (this.currentLevel !== 5) {
+            UI.showVectorsCheck.disabled = false;
+        }
 
         // Feedback da nuvem do mascote
         const bubble = document.querySelector(".tip-bubble");
@@ -239,6 +272,174 @@ const MainApp = {
     },
 
     /**
+     * Inicializa os alvos flutuantes para a Fase 5 (Análise de Vetores).
+     * Cada alvo é um objeto com posição física X, Y e dimensões em metros.
+     */
+    initFloatingTargets() {
+        const tx = this.targetX;
+        // Três alvos em alturas diferentes para o aluno analisar Vy
+        this.floatingTargets = [
+            { x: tx - 8, y: 4.0,  width: 2.5, height: 2.5, isHit: false }, // Baixo
+            { x: tx,     y: 8.0,  width: 2.5, height: 2.5, isHit: false }, // Médio (mais alto)
+            { x: tx + 8, y: 5.5,  width: 2.5, height: 2.5, isHit: false }, // Intermediário
+        ];
+        this.shotsLeft = this.maxShots;
+        if (typeof UI !== 'undefined' && UI.updateShotsHUD) {
+            UI.updateShotsHUD(this.shotsLeft, this.maxShots);
+        }
+
+        const bubble = document.querySelector(".tip-bubble");
+        if (bubble) {
+            const tip = CONFIG.VECTOR_TIPS[Math.floor(Math.random() * CONFIG.VECTOR_TIPS.length)];
+            bubble.innerHTML = `🔌 <b>Fase de Vetores!</b> Acerte os 3 alvos flutuantes! <br>💡 ${tip}`;
+        }
+    },
+
+    /**
+     * Verifica colisão do projétil com os alvos flutuantes (Fase 5).
+     */
+    checkFloatingTargetHit() {
+        const radiusPhys = (CONFIG.PROJECTILES[UI.selectedProjectile].radius) / Renderer.pixelsPerMeter;
+
+        this.floatingTargets.forEach(target => {
+            if (target.isHit) return;
+
+            const left   = target.x - target.width / 2;
+            const right  = target.x + target.width / 2;
+            const bottom = target.y;
+            const top    = target.y + target.height;
+
+            const projLeft   = this.projectileX - radiusPhys;
+            const projRight  = this.projectileX + radiusPhys;
+            const projBottom = this.projectileY - radiusPhys;
+            const projTop    = this.projectileY + radiusPhys;
+
+            if (projRight >= left && projLeft <= right && projTop >= bottom && projBottom <= top) {
+                target.isHit = true;
+                Renderer.createWoodSplinters(target.x, target.y + target.height / 2);
+                Renderer.createCelebrationConfetti(target.x);
+                UI.playSynthSound("success");
+                UI.addScore(15);
+                this.shakeTime = 8;
+                this.shakeIntensity = 8;
+
+                const bubble = document.querySelector(".tip-bubble");
+                if (bubble) {
+                    bubble.innerHTML = `🎉 <b>Alvo atingido!</b> +15 pontos! Observe os valores de Vx e Vy nesse instante!`;
+                }
+            }
+        });
+    },
+
+    /**
+     * Exibe o quiz interativo de vetores após um lançamento na Fase 5.
+     * As perguntas são geradas dinamicamente com base nos dados reais do lançamento.
+     * @param {string} context - Contexto do momento do quiz.
+     */
+    showVectorQuiz(context) {
+        const modal = document.getElementById("vector-quiz-modal");
+        if (!modal) return;
+
+        // Liberar controles para próximo lançamento
+        this.toggleControls(false);
+
+        const allQ = CONFIG.VECTOR_QUIZ_QUESTIONS;
+
+        // Filtrar perguntas relevantes ao contexto ou pegar aleatórias
+        let pool = allQ.filter(q => q.context === context);
+        if (pool.length === 0) pool = allQ;
+        
+        // Escolher pergunta aleatória do pool
+        const question = pool[Math.floor(Math.random() * pool.length)];
+
+        // Preencher dados dinâmicos no modal
+        const vxVal   = Math.abs(this.lastLaunchVx).toFixed(1);
+        const vyVal   = this.lastLaunchVy.toFixed(1);
+        const speedVal = this.currentSpeed.toFixed(1);
+        const angleVal = this.currentAngle;
+
+        document.getElementById("quiz-question-text").innerHTML = question.question;
+        document.getElementById("quiz-vx-value").textContent    = vxVal;
+        document.getElementById("quiz-vy-value").textContent    = vyVal;
+        document.getElementById("quiz-angle-value").textContent = angleVal + "°";
+        document.getElementById("quiz-speed-value").textContent = speedVal + " m/s";
+
+        // Renderizar as opções de resposta
+        const optContainer = document.getElementById("quiz-options");
+        optContainer.innerHTML = "";
+        question.options.forEach((opt, i) => {
+            const btn = document.createElement("button");
+            btn.className = "quiz-option-btn";
+            btn.id = `quiz-opt-${i}`;
+            btn.textContent = opt;
+            btn.addEventListener("click", () => {
+                // Desabilitar todos os botões após resposta
+                optContainer.querySelectorAll(".quiz-option-btn").forEach(b => b.disabled = true);
+
+                const feedback    = document.getElementById("quiz-feedback");
+                const continueBtn = document.getElementById("quiz-continue-btn");
+
+                if (i === question.correct) {
+                    btn.classList.add("correct");
+                    feedback.textContent  = question.explanation;
+                    feedback.className    = "quiz-feedback correct";
+                    UI.addScore(10);
+                    UI.playSynthSound("success");
+                } else {
+                    btn.classList.add("wrong");
+                    optContainer.querySelectorAll(".quiz-option-btn")[question.correct].classList.add("correct");
+                    feedback.textContent = question.explanation;
+                    feedback.className   = "quiz-feedback wrong";
+                    UI.playSynthSound("impact");
+                }
+
+                feedback.classList.remove("hidden");
+                continueBtn.classList.remove("hidden");
+            });
+            optContainer.appendChild(btn);
+        });
+
+        // Esconder feedback e botão até resposta
+        document.getElementById("quiz-feedback").classList.add("hidden");
+        document.getElementById("quiz-continue-btn").classList.add("hidden");
+
+        // Botão de continuar — clonar para remover listeners antigos
+        const continueBtn = document.getElementById("quiz-continue-btn");
+        const freshContinue = continueBtn.cloneNode(true);
+        continueBtn.parentNode.replaceChild(freshContinue, continueBtn);
+        freshContinue.addEventListener("click", () => {
+            modal.classList.add("hidden");
+
+            // Verificar se todos os alvos foram atingidos
+            const allHit = this.floatingTargets.every(t => t.isHit);
+            if (allHit) {
+                this.isTargetHit = true;
+                this.showPhaseTransitionModal();
+            } else {
+                const remaining = this.floatingTargets.filter(t => !t.isHit).length;
+                const bubble = document.querySelector(".tip-bubble");
+                if (this.shotsLeft > 0) {
+                    if (bubble) {
+                        const tip = CONFIG.VECTOR_TIPS[Math.floor(Math.random() * CONFIG.VECTOR_TIPS.length)];
+                        bubble.innerHTML = `🎯 <b>Restam ${remaining} alvo(s)!</b> <br>💡 ${tip}`;
+                    }
+                } else {
+                    // Sem mais tentativas: reiniciar fase
+                    if (bubble) bubble.innerHTML = `😢 <b>Arremessos acabaram!</b> Reiniciando para tentar novamente...`;
+                    setTimeout(() => {
+                        this.loadLevel(this.currentLevel);
+                        this.toggleControls(false);
+                        this.updatePreview();
+                    }, 2000);
+                }
+            }
+        });
+
+        // Exibir o modal
+        modal.classList.remove("hidden");
+    },
+
+    /**
      * Altera a gravidade conforme o planeta.
      * @param {string} planetKey 
      */
@@ -331,6 +532,13 @@ const MainApp = {
         this.currentTime = 0;
         this.isSimulating = true;
         this.isTargetHit = false;
+        this.vectorQuizAsked = false;
+
+        // Guardar componentes iniciais para o quiz
+        const initVel = Physics.getInitialVelocityComponents(this.currentSpeed, this.currentAngle);
+        this.lastLaunchVx = initVel.x;
+        this.lastLaunchVy = initVel.y;
+        this.lastLaunchAngle = this.currentAngle;
 
         // Tremor de tela do disparo
         this.shakeTime = 8;
@@ -505,7 +713,24 @@ const MainApp = {
         // Som de impacto no chão
         UI.playSynthSound("impact");
 
-        // Checar vitória
+        // --- Fase 5: Modo Vetores ---
+        const cfg = this.levels[this.currentLevel - 1];
+        if (cfg && cfg.mode === "vetores") {
+            // Determinar contexto para o quiz com base no timing do lançamento
+            let context = "meio_do_voo";
+            const halfTime = this.flightStats.flightTime / 2;
+            if (Math.abs(this.currentTime - halfTime) < halfTime * 0.1) context = "ponto_mais_alto";
+            else if (this.currentTime < halfTime * 0.6) context = "subindo";
+            else context = "descendo";
+
+            // Exibir quiz após pequeno delay
+            setTimeout(() => {
+                this.showVectorQuiz(context);
+            }, 800);
+            return;
+        }
+
+        // Checar vitória (fases normais)
         this.checkVictory();
 
         if (this.isTargetHit) {
@@ -618,7 +843,10 @@ const MainApp = {
 
             if (trophy)   trophy.textContent   = "🏆";
             if (title)    title.textContent    = `Fase ${this.currentLevel} Concluída!`;
-            if (subtitle) subtitle.textContent = `Incrível! Você destruiu todas as caixas!`;
+            const isCurrVetores = (this.levels[this.currentLevel - 1]?.mode === "vetores");
+            if (subtitle) subtitle.textContent = isCurrVetores
+                ? `Incrível! Você atingiu todos os alvos flutuantes!`
+                : `Incrível! Você destruiu todas as caixas!`;
             if (emoji)    emoji.textContent    = planetEmoji;
             if (name)     name.textContent     = nextPlanet.name;
             if (desc)     desc.textContent     = nextPlanet.description;
@@ -687,11 +915,15 @@ const MainApp = {
             Renderer.drawPreviousTrajectory(this.previousTrajectoryPoints);
         }
 
-        // Alvo
-        Renderer.drawTarget(this.targetX, this.isTargetHit);
-
-        // Caixas de madeira
-        Renderer.drawCrates(this.crates);
+        // --- Fase 5: Alvos flutuantes --- ou Fase normal: alvo + caixas
+        const currentCfg = this.levels[this.currentLevel - 1];
+        if (currentCfg && currentCfg.mode === "vetores") {
+            Renderer.drawFloatingTargets(this.floatingTargets);
+        } else {
+            // Alvo e caixas das fases normais
+            Renderer.drawTarget(this.targetX, this.isTargetHit);
+            Renderer.drawCrates(this.crates);
+        }
 
         // Trajetória prevista
         if (UI.showTrajectory && !this.isSimulating) {
@@ -717,6 +949,11 @@ const MainApp = {
 
             if (UI.showVectors) {
                 Renderer.drawVectors(this.projectileX, this.projectileY, vel.x, vel.y);
+            }
+
+            // Painel de vetores em tempo real (Fase 5)
+            if (currentCfg && currentCfg.mode === "vetores") {
+                Renderer.drawVectorPanel(vel.x, vel.y, this.lastLaunchVx, this.lastLaunchVy);
             }
         } else if (this.projectileX > 0) {
             Renderer.drawProjectile(this.projectileX, this.projectileY, 0);
@@ -761,50 +998,58 @@ const MainApp = {
         ctx.restore();
     },
 
+
     /**
      * Loop principal de renderização e colisão.
      */
     gameLoop() {
-        if (this.isSimulating) {
+        if (this.isSimulating && !this.isPaused) {
             this.currentTime += this.timeStep;
 
-            // Checar colisão AABB com as caixas
-            this.crates.forEach(crate => {
-                if (crate.isBroken) return;
+            const loopCfg = this.levels[this.currentLevel - 1];
 
-                const left = crate.x - crate.width / 2;
-                const right = crate.x + crate.width / 2;
-                const bottom = crate.y;
-                const top = crate.y + crate.height;
+            if (loopCfg && loopCfg.mode === "vetores") {
+                // Fase 5: Checar colisão com alvos flutuantes
+                this.checkFloatingTargetHit();
+            } else {
+                // Fases normais: Checar colisão AABB com as caixas
+                this.crates.forEach(crate => {
+                    if (crate.isBroken) return;
 
-                const radiusPhys = (CONFIG.PROJECTILES[UI.selectedProjectile].radius) / Renderer.pixelsPerMeter;
-                
-                const projLeft = this.projectileX - radiusPhys;
-                const projRight = this.projectileX + radiusPhys;
-                const projBottom = this.projectileY - radiusPhys;
-                const projTop = this.projectileY + radiusPhys;
+                    const left = crate.x - crate.width / 2;
+                    const right = crate.x + crate.width / 2;
+                    const bottom = crate.y;
+                    const top = crate.y + crate.height;
 
-                if (projRight >= left && projLeft <= right && projTop >= bottom && projBottom <= top) {
-                    crate.isBroken = true;
+                    const radiusPhys = (CONFIG.PROJECTILES[UI.selectedProjectile].radius) / Renderer.pixelsPerMeter;
+                    
+                    const projLeft = this.projectileX - radiusPhys;
+                    const projRight = this.projectileX + radiusPhys;
+                    const projBottom = this.projectileY - radiusPhys;
+                    const projTop = this.projectileY + radiusPhys;
 
-                    // Estilhaços, som e tremor
-                    Renderer.createWoodSplinters(crate.x, crate.y + crate.height / 2);
-                    UI.playSynthSound("woodBreak");
-                    this.shakeTime = 10;
-                    this.shakeIntensity = 10;
+                    if (projRight >= left && projLeft <= right && projTop >= bottom && projBottom <= top) {
+                        crate.isBroken = true;
 
-                    // Adicionar pontos extras
-                    UI.addScore(5);
+                        // Estilhaços, som e tremor
+                        Renderer.createWoodSplinters(crate.x, crate.y + crate.height / 2);
+                        UI.playSynthSound("woodBreak");
+                        this.shakeTime = 10;
+                        this.shakeIntensity = 10;
 
-                    const bubble = document.querySelector(".tip-bubble");
-                    if (bubble) {
-                        bubble.innerHTML = `💥 <b>CRAASH!</b> Caixa de madeira destruída! +5 pontos! 🪵`;
+                        // Adicionar pontos extras
+                        UI.addScore(5);
+
+                        const bubble = document.querySelector(".tip-bubble");
+                        if (bubble) {
+                            bubble.innerHTML = `💥 <b>CRAASH!</b> Caixa de madeira destruída! +5 pontos! 🪵`;
+                        }
+
+                        // Checar se completou a fase ao quebrar o bloco
+                        this.checkVictory();
                     }
-
-                    // Checar se completou a fase ao quebrar o bloco
-                    this.checkVictory();
-                }
-            });
+                });
+            }
 
             if (this.currentTime >= this.flightStats.flightTime) {
                 this.handleLanding();
@@ -819,6 +1064,7 @@ const MainApp = {
                 this.projectileY = pos.y;
             }
         }
+
 
         this.drawScene();
         requestAnimationFrame(() => this.gameLoop());

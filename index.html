@@ -11,7 +11,7 @@
     <meta name="author" content="Antigravity Ide IDE">
 
     <!-- CSS Styling Link -->
-    <link rel="stylesheet" href="css/style.css?v=6">
+    <link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
 
@@ -38,9 +38,9 @@
                     <p>Adora dar saltos altos e coaxar feliz!</p>
                 </button>
                 <button class="char-card" data-proj="foguete" id="char-foguete">
-                    <span class="char-emoji">🚀</span>
-                    <h3>Mini Foguete</h3>
-                    <p>Deixa um rastro mágico de estrelas de fumaça!</p>
+                    <span class="char-emoji">💣</span>
+                    <h3>Mini Bomba</h3>
+                    <p>Pequena e poderosa! Faz uma explosão com fumaça ao impactar!</p>
                 </button>
             </div>
         </div>
@@ -68,9 +68,11 @@
             <!-- Coluna da Esquerda: Área Gráfica (Canvas) e Mascote -->
             <div class="simulation-column">
                 
-                <div class="canvas-wrapper">
+                <div class="canvas-wrapper" style="position: relative;">
                     <!-- O elemento canvas onde todo o jogo/física é desenhado -->
                     <canvas id="sim-canvas"></canvas>
+                    <!-- Botão de Pause -->
+                    <button id="btn-pause" class="btn-pause" aria-label="Pausar Simulação">⏸️ Pause</button>
                 </div>
 
                 <!-- Mascote Explicativo de Física -->
@@ -258,12 +260,65 @@
         </div>
     </div>
 
+    <!-- 5. MODAL DE QUIZ DE VETORES (Fase 5) -->
+    <div id="vector-quiz-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title">
+        <div class="quiz-modal-content">
+            <!-- Cabeçalho do Quiz -->
+            <div class="quiz-header">
+                <span class="quiz-badge">🔬 Fase Vetores</span>
+                <h2 id="quiz-modal-title">Desafio dos Vetores!</h2>
+                <p class="quiz-subtitle">Analise os dados do seu lançamento e responda:</p>
+            </div>
+
+            <!-- Dados reais do lançamento -->
+            <div class="quiz-data-panel">
+                <div class="quiz-data-item vx">
+                    <span class="quiz-data-label">⟶ Vx</span>
+                    <span class="quiz-data-value" id="quiz-vx-value">—</span>
+                    <span class="quiz-data-unit">m/s</span>
+                </div>
+                <div class="quiz-data-item vy">
+                    <span class="quiz-data-label">↑ Vy</span>
+                    <span class="quiz-data-value" id="quiz-vy-value">—</span>
+                    <span class="quiz-data-unit">m/s</span>
+                </div>
+                <div class="quiz-data-item angle">
+                    <span class="quiz-data-label">📐 θ</span>
+                    <span class="quiz-data-value" id="quiz-angle-value">—</span>
+                </div>
+                <div class="quiz-data-item speed">
+                    <span class="quiz-data-label">⚡ V₀</span>
+                    <span class="quiz-data-value" id="quiz-speed-value">—</span>
+                </div>
+            </div>
+
+            <!-- Divisor -->
+            <div class="quiz-divider"></div>
+
+            <!-- Pergunta -->
+            <p class="quiz-question" id="quiz-question-text">Carregando pergunta...</p>
+
+            <!-- Opções de resposta -->
+            <div class="quiz-options" id="quiz-options">
+                <!-- Botões gerados dinamicamente pelo JS -->
+            </div>
+
+            <!-- Feedback de resposta -->
+            <div class="quiz-feedback hidden" id="quiz-feedback"></div>
+
+            <!-- Botão de continuar -->
+            <button class="btn quiz-continue-btn hidden" id="quiz-continue-btn">
+                Continuar ➡️
+            </button>
+        </div>
+    </div>
+
     <!-- JavaScript Files (Loaded in correct order) -->
-    <script src="js/config.js?v=6"></script>
-    <script src="js/physics.js?v=6"></script>
-    <script src="js/renderer.js?v=6"></script>
-    <script src="js/ui.js?v=6"></script>
-    <script src="js/main.js?v=6"></script>
+    <script src="js/config.js?v=7"></script>
+    <script src="js/physics.js?v=7"></script>
+    <script src="js/renderer.js?v=7"></script>
+    <script src="js/ui.js?v=7"></script>
+    <script src="js/main.js?v=7"></script>
 
 </body>
 </html>
