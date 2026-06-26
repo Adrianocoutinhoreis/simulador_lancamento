@@ -385,7 +385,7 @@ input:checked + .slider-toggle:before {
 /* Botões de Ação */
 .button-grid {
     display: grid;
-    grid-template-columns: 1.5fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px;
     margin-top: 10px;
 }
@@ -612,7 +612,6 @@ input:checked + .slider-toggle:before {
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: opacity 0.4s ease, transform 0.4s ease;
     padding: 20px;
 }
 
@@ -805,7 +804,6 @@ input:checked + .slider-toggle:before {
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: opacity 0.3s ease;
     padding: 20px;
 }
 
@@ -1293,7 +1291,8 @@ input:checked + .slider-toggle:before {
 .btn-pause {
     position: absolute;
     top: 15px;
-    left: 15px;
+    left: 50%;
+    transform: translateX(-50%);
     background: rgba(255, 255, 255, 0.8);
     border: 2px solid rgba(0, 0, 0, 0.1);
     border-radius: 12px;
@@ -1311,11 +1310,11 @@ input:checked + .slider-toggle:before {
 
 .btn-pause:hover {
     background: white;
-    transform: translateY(-2px);
+    transform: translateX(-50%) translateY(-2px);
     box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
 }
 
 .btn-pause:active {
-    transform: translateY(0px);
+    transform: translateX(-50%) translateY(0px);
 }
 

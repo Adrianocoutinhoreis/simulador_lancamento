@@ -11,7 +11,6 @@ const UI = {
     showTrajectoryCheck: null,
     
     btnLaunch: null,
-    btnReset: null,
     btnRestartGame: null,
     btnNextLevel: null,
     btnPause: null,
@@ -71,7 +70,6 @@ const UI = {
         this.showTrajectoryCheck = document.getElementById("show-trajectory");
         
         this.btnLaunch = document.getElementById("btn-launch");
-        this.btnReset = document.getElementById("btn-reset");
         this.btnRestartGame = document.getElementById("btn-restart-game");
         this.btnNextLevel = document.getElementById("btn-next-level");
         this.btnPause = document.getElementById("btn-pause");
@@ -133,11 +131,6 @@ const UI = {
         // Botões de Ação Principal
         this.btnLaunch.addEventListener("click", () => {
             if (typeof MainApp !== "undefined") MainApp.launch();
-        });
-
-        this.btnReset.addEventListener("click", () => {
-            if (typeof MainApp !== "undefined") MainApp.reset();
-            this.showNewTip();
         });
 
         if (this.btnPause) {

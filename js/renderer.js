@@ -228,8 +228,8 @@ const Renderer = {
         ctx.fillRect(0, groundY, width, 6);
 
         // Régua de medição estilizada (para ajudar a entender distância física)
-        ctx.fillStyle = "rgba(190, 190, 190, 0.7)";
-        ctx.font = "bold 15px sans-serif";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.font = "bold 12px sans-serif";
         ctx.textAlign = "center";
         
         const meterInterval = 10; // Desenhar marcação a cada 10 metros
@@ -244,6 +244,22 @@ const Renderer = {
             ctx.fillRect(screenPos.x - 1, groundY + 6, 2, 8);
             // Texto
             ctx.fillText(`${m}m`, screenPos.x, groundY + 26);
+        }
+
+        // Régua de medição Y (Altura) na lateral esquerda
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        const maxYMeter = Math.ceil(groundY / this.pixelsPerMeter);
+
+        for (let m = 0; m <= maxYMeter; m += meterInterval) {
+            if (m === 0) continue;
+            const screenPos = this.physToCanvas(0, m);
+            if (screenPos.y < 0) break;
+
+            // Linha da marca
+            ctx.fillRect(0, screenPos.y - 1, 8, 2);
+            // Texto
+            ctx.fillText(`${m}m`, 32, screenPos.y);
         }
     },
 

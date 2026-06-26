@@ -47,10 +47,13 @@ const MainApp = {
     // Resultados
     flightStats: null,
     trajectoryPoints: [],
+    activeTrajectory: [],  // Pontos reais percorridos pelo projétil (Euler)
     projectileX: 0,
     projectileY: 0,
     projectileVx: 0,
     projectileVy: 0,
+    bounceCount: 0,        // Contador de quiques
+    simulationStopped: false, // Projétil parou completamente
     isTargetHit: false,
 
     /**
@@ -124,10 +127,20 @@ const MainApp = {
 
             const planetKeys = Object.keys(CONFIG.PLANETS);
             const planet = planetKeys[Math.floor(Math.random() * planetKeys.length)];
-            const targetX = Math.floor(Math.random() * 65) + 20; // Entre 20 e 85 metros
             
             this.currentGravity = CONFIG.PLANETS[planet].gravity;
             Renderer.setPlanet(planet);
+
+            // Calcular o alcance máximo fisicamente possível com Velocidade Máx = 35m/s
+            // R = v^2 / g
+            const maxPossibleDistance = Math.floor((35 * 35) / this.currentGravity);
+            
+            // Limitar o alvo máximo (não ultrapassando 85m e deixando uma folga de 3m)
+            const maxTarget = Math.min(85, maxPossibleDistance - 3);
+            
+            // Gerar alvo aleatório entre 20m e maxTarget
+            const targetX = Math.floor(Math.random() * (maxTarget - 20 + 1)) + 20; 
+            
             this.targetX = targetX;
             this.initCrates();
             UI.updateLevelHUD(
@@ -163,6 +176,14 @@ const MainApp = {
         }
 
         this.updatePreview();
+        this.toggleControls(false);
+    },
+
+    /**
+     * Cria um objeto caixa com propriedades de física.
+     */
+    makeCrate(x, y, width, height, type) {
+        return { x, y, width, height, type, isBroken: false, vy: 0, isFalling: false };
     },
 
     initCrates() {
@@ -170,96 +191,86 @@ const MainApp = {
         if (this.currentLevel === 1) {
             // Fase 1: Terra 🌍 - Desafio simples (5 blocos)
             this.crates = [
-                { x: tx - 2.0, y: 0, width: 1.2, height: 4.5, type: 'column', isBroken: false },
-                { x: tx + 2.0, y: 0, width: 1.2, height: 4.5, type: 'column', isBroken: false },
-                { x: tx, y: 4.5, width: 6.0, height: 1.2, type: 'beam', isBroken: false },
-                { x: tx, y: 5.7, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                { x: tx, y: 7.9, width: 2.2, height: 2.2, type: 'triangle', isBroken: false }
+                this.makeCrate(tx - 2.0, 0, 1.2, 4.5, 'column'),
+                this.makeCrate(tx + 2.0, 0, 1.2, 4.5, 'column'),
+                this.makeCrate(tx, 4.5, 6.0, 1.2, 'beam'),
+                this.makeCrate(tx, 5.7, 2.2, 2.2, 'crate'),
+                this.makeCrate(tx, 7.9, 2.2, 2.2, 'triangle')
             ];
             this.maxShots = 3;
         } else if (this.currentLevel === 2) {
             // Fase 2: Lua 🌕 - Desafio médio (7 blocos)
             this.crates = [
-                { x: tx - 3.5, y: 0, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx, y: 0, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx + 3.5, y: 0, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx, y: 4.0, width: 9.0, height: 1.2, type: 'beam', isBroken: false },
-                { x: tx - 2.0, y: 5.2, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                { x: tx + 2.0, y: 5.2, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                { x: tx, y: 5.2, width: 2.2, height: 2.2, type: 'triangle', isBroken: false }
+                this.makeCrate(tx - 3.5, 0, 1.2, 4.0, 'column'),
+                this.makeCrate(tx, 0, 1.2, 4.0, 'column'),
+                this.makeCrate(tx + 3.5, 0, 1.2, 4.0, 'column'),
+                this.makeCrate(tx, 4.0, 9.0, 1.2, 'beam'),
+                this.makeCrate(tx - 2.0, 5.2, 2.2, 2.2, 'crate'),
+                this.makeCrate(tx + 2.0, 5.2, 2.2, 2.2, 'crate'),
+                this.makeCrate(tx, 5.2, 2.2, 2.2, 'triangle')
             ];
             this.maxShots = 3;
         } else if (this.currentLevel === 3) {
-            // Fase 3: Marte 🔴 - Desafio em dois andares (Angry Birds Reference)
+            // Fase 3: Marte 🔴 - Desafio em dois andares
             this.crates = [
-                // Base
-                { x: tx, y: 0, width: 8.0, height: 1.2, type: 'beam', isBroken: false },
-                // Primeiro andar
-                { x: tx - 2.5, y: 1.2, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx + 2.5, y: 1.2, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx, y: 1.2, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                // Teto do primeiro andar
-                { x: tx, y: 5.2, width: 8.0, height: 1.2, type: 'beam', isBroken: false },
-                // Segundo andar
-                { x: tx - 2.0, y: 6.4, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx + 2.0, y: 6.4, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx, y: 6.4, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                // Teto do segundo andar
-                { x: tx, y: 10.4, width: 6.0, height: 1.2, type: 'beam', isBroken: false },
-                // Telhado
-                { x: tx - 1.5, y: 11.6, width: 2.2, height: 2.2, type: 'triangle', isBroken: false },
-                { x: tx + 1.5, y: 11.6, width: 2.2, height: 2.2, type: 'triangle', isBroken: false }
+                this.makeCrate(tx, 0, 8.0, 1.2, 'beam'),
+                this.makeCrate(tx - 2.5, 1.2, 1.2, 4.0, 'column'),
+                this.makeCrate(tx + 2.5, 1.2, 1.2, 4.0, 'column'),
+                this.makeCrate(tx, 1.2, 2.2, 2.2, 'crate'),
+                this.makeCrate(tx, 5.2, 8.0, 1.2, 'beam'),
+                this.makeCrate(tx - 2.0, 6.4, 1.2, 4.0, 'column'),
+                this.makeCrate(tx + 2.0, 6.4, 1.2, 4.0, 'column'),
+                this.makeCrate(tx, 6.4, 2.2, 2.2, 'crate'),
+                this.makeCrate(tx, 10.4, 6.0, 1.2, 'beam'),
+                this.makeCrate(tx - 1.5, 11.6, 2.2, 2.2, 'triangle'),
+                this.makeCrate(tx + 1.5, 11.6, 2.2, 2.2, 'triangle')
             ];
             this.maxShots = 4;
         } else if (this.currentLevel === 4) {
-            // Fase 4: Júpiter 🪐 - Castelo Forte (9 blocos)
+            // Fase 4: Júpiter 🪐 - Castelo Forte
             this.crates = [
-                { x: tx - 2.5, y: 0, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                { x: tx, y: 0, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                { x: tx + 2.5, y: 0, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                { x: tx - 2.0, y: 2.2, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx + 2.0, y: 2.2, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                { x: tx, y: 6.2, width: 7.0, height: 1.2, type: 'beam', isBroken: false },
-                { x: tx - 2.0, y: 7.4, width: 2.0, height: 2.0, type: 'triangle', isBroken: false },
-                { x: tx, y: 7.4, width: 2.0, height: 2.0, type: 'triangle', isBroken: false },
-                { x: tx + 2.0, y: 7.4, width: 2.0, height: 2.0, type: 'triangle', isBroken: false }
+                this.makeCrate(tx - 2.5, 0, 2.2, 2.2, 'crate'),
+                this.makeCrate(tx, 0, 2.2, 2.2, 'crate'),
+                this.makeCrate(tx + 2.5, 0, 2.2, 2.2, 'crate'),
+                this.makeCrate(tx - 2.0, 2.2, 1.2, 4.0, 'column'),
+                this.makeCrate(tx + 2.0, 2.2, 1.2, 4.0, 'column'),
+                this.makeCrate(tx, 6.2, 7.0, 1.2, 'beam'),
+                this.makeCrate(tx - 2.0, 7.4, 2.0, 2.0, 'triangle'),
+                this.makeCrate(tx, 7.4, 2.0, 2.0, 'triangle'),
+                this.makeCrate(tx + 2.0, 7.4, 2.0, 2.0, 'triangle')
             ];
             this.maxShots = 4;
         } else {
-            // Modo Infinito (Fase 5+) - Estrutura aleatória gerada pela IA
+            // Modo Infinito - Estrutura aleatória gerada pela IA
             const randType = Math.floor(Math.random() * 4);
             if (randType === 0) {
-                // Tipo 1: Torre Simples
                 this.crates = [
-                    { x: tx - 2.0, y: 0, width: 1.2, height: 4.5, type: 'column', isBroken: false },
-                    { x: tx + 2.0, y: 0, width: 1.2, height: 4.5, type: 'column', isBroken: false },
-                    { x: tx, y: 4.5, width: 6.0, height: 1.2, type: 'beam', isBroken: false },
-                    { x: tx, y: 5.7, width: 2.2, height: 2.2, type: 'crate', isBroken: false }
+                    this.makeCrate(tx - 2.0, 0, 1.2, 4.5, 'column'),
+                    this.makeCrate(tx + 2.0, 0, 1.2, 4.5, 'column'),
+                    this.makeCrate(tx, 4.5, 6.0, 1.2, 'beam'),
+                    this.makeCrate(tx, 5.7, 2.2, 2.2, 'crate')
                 ];
             } else if (randType === 1) {
-                // Tipo 2: Ponte de Madeira
                 this.crates = [
-                    { x: tx - 3.0, y: 0, width: 1.2, height: 3.5, type: 'column', isBroken: false },
-                    { x: tx + 3.0, y: 0, width: 1.2, height: 3.5, type: 'column', isBroken: false },
-                    { x: tx, y: 3.5, width: 8.0, height: 1.2, type: 'beam', isBroken: false },
-                    { x: tx - 1.5, y: 4.7, width: 2.2, height: 2.2, type: 'triangle', isBroken: false },
-                    { x: tx + 1.5, y: 4.7, width: 2.2, height: 2.2, type: 'triangle', isBroken: false }
+                    this.makeCrate(tx - 3.0, 0, 1.2, 3.5, 'column'),
+                    this.makeCrate(tx + 3.0, 0, 1.2, 3.5, 'column'),
+                    this.makeCrate(tx, 3.5, 8.0, 1.2, 'beam'),
+                    this.makeCrate(tx - 1.5, 4.7, 2.2, 2.2, 'triangle'),
+                    this.makeCrate(tx + 1.5, 4.7, 2.2, 2.2, 'triangle')
                 ];
             } else if (randType === 2) {
-                // Tipo 3: Pilha Tripla
                 this.crates = [
-                    { x: tx - 2.0, y: 0, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                    { x: tx + 2.0, y: 0, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                    { x: tx, y: 2.2, width: 2.2, height: 2.2, type: 'crate', isBroken: false },
-                    { x: tx, y: 4.4, width: 2.2, height: 2.2, type: 'triangle', isBroken: false }
+                    this.makeCrate(tx - 2.0, 0, 2.2, 2.2, 'crate'),
+                    this.makeCrate(tx + 2.0, 0, 2.2, 2.2, 'crate'),
+                    this.makeCrate(tx, 2.2, 2.2, 2.2, 'crate'),
+                    this.makeCrate(tx, 4.4, 2.2, 2.2, 'triangle')
                 ];
             } else {
-                // Tipo 4: Duas Torres
                 this.crates = [
-                    { x: tx - 2.5, y: 0, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                    { x: tx - 2.5, y: 4.0, width: 2.0, height: 2.0, type: 'triangle', isBroken: false },
-                    { x: tx + 2.5, y: 0, width: 1.2, height: 4.0, type: 'column', isBroken: false },
-                    { x: tx + 2.5, y: 4.0, width: 2.0, height: 2.0, type: 'triangle', isBroken: false }
+                    this.makeCrate(tx - 2.5, 0, 1.2, 4.0, 'column'),
+                    this.makeCrate(tx - 2.5, 4.0, 2.0, 2.0, 'triangle'),
+                    this.makeCrate(tx + 2.5, 0, 1.2, 4.0, 'column'),
+                    this.makeCrate(tx + 2.5, 4.0, 2.0, 2.0, 'triangle')
                 ];
             }
             this.maxShots = 3;
@@ -531,11 +542,20 @@ const MainApp = {
         this.currentSpeed = parseFloat(UI.speedSlider.value);
         this.currentTime = 0;
         this.isSimulating = true;
+        this.simulationStopped = false;
         this.isTargetHit = false;
         this.vectorQuizAsked = false;
+        this.bounceCount = 0;
+        this.activeTrajectory = [];
+
+        // Inicializar velocidades Euler do projétil
+        const initVel = Physics.getInitialVelocityComponents(this.currentSpeed, this.currentAngle);
+        this.projectileVx = initVel.x;
+        this.projectileVy = initVel.y;
+        this.projectileX = 0;
+        this.projectileY = 0;
 
         // Guardar componentes iniciais para o quiz
-        const initVel = Physics.getInitialVelocityComponents(this.currentSpeed, this.currentAngle);
         this.lastLaunchVx = initVel.x;
         this.lastLaunchVy = initVel.y;
         this.lastLaunchAngle = this.currentAngle;
@@ -590,6 +610,11 @@ const MainApp = {
         this.currentTime = 0;
         this.projectileX = 0;
         this.projectileY = 0;
+        this.projectileVx = 0;
+        this.projectileVy = 0;
+        this.bounceCount = 0;
+        this.simulationStopped = false;
+        this.activeTrajectory = [];
     },
 
     toggleControls(disable) {
@@ -625,7 +650,7 @@ const MainApp = {
         };
 
         const onStart = (evt) => {
-            if (this.isSimulating) return;
+            if (this.isSimulating || this.simulationStopped) return;
 
             const pos = getMousePos(evt);
             const groundY = canvas.height - Renderer.groundYOffset;
@@ -696,17 +721,106 @@ const MainApp = {
     },
 
     /**
-     * Lida com a aterrissagem do projétil no solo.
+     * Atualiza a física de todas as caixas: verifica se cada caixa tem suporte,
+     * e se não tiver, faz ela cair com gravidade.
+     */
+    updateCratePhysics() {
+        const dt = this.timeStep;
+        const g = this.currentGravity;
+
+        this.crates.forEach(crate => {
+            if (crate.isBroken) return;
+
+            // Determinar a superfície de apoio mais alta abaixo desta caixa
+            const crateLeft = crate.x - crate.width / 2;
+            const crateRight = crate.x + crate.width / 2;
+            const crateBottom = crate.y;
+
+            // Chão = y=0
+            let supportY = 0;
+            let isSupported = (crateBottom <= 0.01); // Está no chão?
+
+            if (!isSupported) {
+                // Procurar outra caixa que sirva de suporte
+                this.crates.forEach(other => {
+                    if (other === crate || other.isBroken) return;
+                    const otherLeft = other.x - other.width / 2;
+                    const otherRight = other.x + other.width / 2;
+                    const otherTop = other.y + other.height;
+
+                    // Há sobreposição horizontal?
+                    const overlapX = Math.min(crateRight, otherRight) - Math.max(crateLeft, otherLeft);
+                    if (overlapX > 0.05) {
+                        // O topo da outra caixa está na base desta (ou muito perto)?
+                        if (Math.abs(crateBottom - otherTop) < 0.15) {
+                            isSupported = true;
+                            supportY = Math.max(supportY, otherTop);
+                        }
+                        // Se a outra caixa está abaixo e próxima (para queda)
+                        if (otherTop <= crateBottom && otherTop > supportY) {
+                            supportY = otherTop;
+                        }
+                    }
+                });
+            }
+
+            if (!isSupported) {
+                // Sem suporte → ativar queda
+                crate.isFalling = true;
+            }
+
+            if (crate.isFalling) {
+                // Aplicar gravidade
+                crate.vy = (crate.vy || 0) - g * dt;
+                crate.y += crate.vy * dt;
+
+                // Verificar pouso no chão
+                if (crate.y <= 0) {
+                    crate.y = 0;
+                    if (Math.abs(crate.vy) > 1.0) {
+                        crate.vy = -crate.vy * CONFIG.CRATE_RESTITUTION;
+                        // Tremor leve
+                        this.shakeTime = Math.max(this.shakeTime, 4);
+                        this.shakeIntensity = Math.max(this.shakeIntensity, 4);
+                    } else {
+                        crate.vy = 0;
+                        crate.isFalling = false;
+                    }
+                } else {
+                    // Verificar pouso em outra caixa
+                    this.crates.forEach(other => {
+                        if (other === crate || other.isBroken) return;
+                        const otherLeft = other.x - other.width / 2;
+                        const otherRight = other.x + other.width / 2;
+                        const otherTop = other.y + other.height;
+
+                        const overlapX = Math.min(crateRight, otherRight) - Math.max(crateLeft, otherLeft);
+                        if (overlapX > 0.05) {
+                            if (crate.y <= otherTop && crate.y + crate.height > otherTop && crate.vy < 0) {
+                                crate.y = otherTop;
+                                if (Math.abs(crate.vy) > 1.0) {
+                                    crate.vy = -crate.vy * CONFIG.CRATE_RESTITUTION;
+                                } else {
+                                    crate.vy = 0;
+                                    crate.isFalling = false;
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    },
+
+    /**
+     * Lida com a parada final do projétil (após todos os bounces).
      */
     handleLanding() {
-        const finalX = this.flightStats.maxDistance;
-        
         this.isSimulating = false;
-        this.projectileX = finalX;
-        this.projectileY = 0;
+        this.simulationStopped = true;
 
-        // Partículas e tremor de tela
-        Renderer.createImpactParticles(finalX, 0);
+        // Partículas e tremor de tela finais (apenas se não for bounce suave)
+        Renderer.createImpactParticles(this.projectileX, Math.max(0, this.projectileY));
         this.shakeTime = 12;
         this.shakeIntensity = 8;
 
@@ -716,71 +830,72 @@ const MainApp = {
         // --- Fase 5: Modo Vetores ---
         const cfg = this.levels[this.currentLevel - 1];
         if (cfg && cfg.mode === "vetores") {
-            // Determinar contexto para o quiz com base no timing do lançamento
             let context = "meio_do_voo";
             const halfTime = this.flightStats.flightTime / 2;
             if (Math.abs(this.currentTime - halfTime) < halfTime * 0.1) context = "ponto_mais_alto";
             else if (this.currentTime < halfTime * 0.6) context = "subindo";
             else context = "descendo";
 
-            // Exibir quiz após pequeno delay
             setTimeout(() => {
                 this.showVectorQuiz(context);
             }, 800);
             return;
         }
 
-        // Checar vitória (fases normais)
-        this.checkVictory();
+        // Se houver caixas desmoronando, esperar 600ms. Se não, resetar/verificar quase imediatamente (50ms)
+        const isCollapsing = this.crates.some(c => c.isFalling && !c.isBroken);
+        const waitTime = isCollapsing ? 600 : 50;
 
-        if (this.isTargetHit) {
-            // Vitória já acionada, liberar controles para avançar
-            setTimeout(() => {
-                this.toggleControls(false);
-            }, 1200);
-        } else {
-            // Se ainda restarem blocos em pé
-            if (this.shotsLeft > 0) {
-                const bubble = document.querySelector(".tip-bubble");
-                if (bubble) {
-                    bubble.innerHTML = `🎯 <b>Restam blocos!</b> Você ainda tem <b>${this.shotsLeft}</b> arremesso(s) restante(s). Ajuste a mira!`;
-                }
+        setTimeout(() => {
+            this.checkVictory();
+
+            if (this.isTargetHit) {
                 setTimeout(() => {
                     this.toggleControls(false);
                 }, 1200);
             } else {
-                // Fim das tentativas - reiniciar a fase
-                const bubble = document.querySelector(".tip-bubble");
-                if (bubble) {
-                    bubble.innerHTML = `😢 <b>Que pena!</b> Seus arremessos acabaram. Reiniciando a fase para tentar novamente... 🔄`;
-                    bubble.classList.add("pulse-animation");
-                }
-                
-                // Tocar som de derrota (sintetizador de pitch descendente)
-                if (typeof UI !== 'undefined' && UI.audioCtx) {
-                    try {
-                        const ctx = UI.audioCtx;
-                        const osc = ctx.createOscillator();
-                        const gain = ctx.createGain();
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        osc.type = "sine";
-                        osc.frequency.setValueAtTime(150, ctx.currentTime);
-                        osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.5);
-                        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-                        gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-                        osc.start();
-                        osc.stop(ctx.currentTime + 0.5);
-                    } catch(e) {}
-                }
-
-                setTimeout(() => {
-                    this.loadLevel(this.currentLevel);
+                if (this.shotsLeft > 0) {
+                    const bubble = document.querySelector(".tip-bubble");
+                    if (bubble) {
+                        bubble.innerHTML = `🎯 <b>Restam blocos!</b> Você ainda tem <b>${this.shotsLeft}</b> arremesso(s) restante(s). Ajuste a mira!`;
+                    }
+                    // Limpar automaticamente a simulação (volta para o canhão) e o rastro fantasma instantaneamente
                     this.toggleControls(false);
+                    this.previousTrajectoryPoints = [];
+                    this.resetSimulationState();
                     this.updatePreview();
-                }, 2200);
+                } else {
+                    const bubble = document.querySelector(".tip-bubble");
+                    if (bubble) {
+                        bubble.innerHTML = `😢 <b>Que pena!</b> Seus arremessos acabaram. Reiniciando a fase para tentar novamente... 🔄`;
+                        bubble.classList.add("pulse-animation");
+                    }
+                    
+                    if (typeof UI !== 'undefined' && UI.audioCtx) {
+                        try {
+                            const ctx = UI.audioCtx;
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.type = "sine";
+                            osc.frequency.setValueAtTime(150, ctx.currentTime);
+                            osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.5);
+                            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                            gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.5);
+                        } catch(e) {}
+                    }
+
+                    setTimeout(() => {
+                        this.loadLevel(this.currentLevel);
+                        this.toggleControls(false);
+                        this.updatePreview();
+                    }, 100);
+                }
             }
-        }
+        }, waitTime);
     },
 
     /**
@@ -931,29 +1046,23 @@ const MainApp = {
         }
 
         // Projétil
-        if (this.isSimulating) {
-            const elapsedPercent = this.currentTime / this.flightStats.flightTime;
-            const activeIndex = Math.floor(elapsedPercent * this.trajectoryPoints.length);
-            
-            Renderer.drawActiveTrajectory(this.trajectoryPoints, activeIndex);
+        if (this.isSimulating || this.simulationStopped) {
+            // Desenhar rastro real percorrido
+            if (this.activeTrajectory.length > 1) {
+                Renderer.drawActiveTrajectory(this.activeTrajectory, this.activeTrajectory.length);
+            }
 
-            const vel = Physics.getVelocityAtTime(
-                this.currentTime,
-                this.currentSpeed,
-                this.currentAngle,
-                this.currentGravity
-            );
-            const velAngle = Math.atan2(vel.y, vel.x);
+            const velAngle = Math.atan2(this.projectileVy, this.projectileVx);
 
-            Renderer.drawProjectile(this.projectileX, this.projectileY, velAngle);
+            Renderer.drawProjectile(this.projectileX, this.projectileY, this.isSimulating ? velAngle : 0);
 
-            if (UI.showVectors) {
-                Renderer.drawVectors(this.projectileX, this.projectileY, vel.x, vel.y);
+            if (UI.showVectors && this.isSimulating) {
+                Renderer.drawVectors(this.projectileX, this.projectileY, this.projectileVx, this.projectileVy);
             }
 
             // Painel de vetores em tempo real (Fase 5)
-            if (currentCfg && currentCfg.mode === "vetores") {
-                Renderer.drawVectorPanel(vel.x, vel.y, this.lastLaunchVx, this.lastLaunchVy);
+            if (currentCfg && currentCfg.mode === "vetores" && this.isSimulating) {
+                Renderer.drawVectorPanel(this.projectileVx, this.projectileVy, this.lastLaunchVx, this.lastLaunchVy);
             }
         } else if (this.projectileX > 0) {
             Renderer.drawProjectile(this.projectileX, this.projectileY, 0);
@@ -1000,44 +1109,119 @@ const MainApp = {
 
 
     /**
-     * Loop principal de renderização e colisão.
+     * Verifica colisão do projétil com uma caixa e retorna o lado de impacto.
+     * Retorna null se não houver colisão.
      */
+    checkProjectileCrateCollision(crate, radiusPhys) {
+        const left = crate.x - crate.width / 2;
+        const right = crate.x + crate.width / 2;
+        const bottom = crate.y;
+        const top = crate.y + crate.height;
+
+        const projLeft = this.projectileX - radiusPhys;
+        const projRight = this.projectileX + radiusPhys;
+        const projBottom = this.projectileY - radiusPhys;
+        const projTop = this.projectileY + radiusPhys;
+
+        if (projRight >= left && projLeft <= right && projTop >= bottom && projBottom <= top) {
+            // Determinar de qual lado veio a colisão
+            const overlapLeft = projRight - left;
+            const overlapRight = right - projLeft;
+            const overlapBottom = projTop - bottom;
+            const overlapTop = top - projBottom;
+
+            const minOverlap = Math.min(overlapLeft, overlapRight, overlapBottom, overlapTop);
+
+            if (minOverlap === overlapLeft) return 'left';
+            if (minOverlap === overlapRight) return 'right';
+            if (minOverlap === overlapBottom) return 'bottom';
+            return 'top';
+        }
+        return null;
+    },
+
+    /**
+     * Processa o bounce do projétil no chão.
+     * Retorna true se o projétil deve continuar, false se deve parar.
+     */
+    handleGroundBounce() {
+        if (this.projectileY > 0) return true; // Ainda no ar
+
+        this.projectileY = 0;
+
+        // Verificar se deve quicar
+        if (this.bounceCount < CONFIG.MAX_BOUNCES && Math.abs(this.projectileVy) > CONFIG.BOUNCE_MIN_VY) {
+            // Quicar!
+            this.projectileVy = -this.projectileVy * CONFIG.BOUNCE_RESTITUTION;
+            this.projectileVx *= CONFIG.BOUNCE_FRICTION;
+            this.bounceCount++;
+
+            // Partículas e tremor menor a cada bounce
+            const intensity = Math.max(2, 8 - this.bounceCount * 2);
+            Renderer.createImpactParticles(this.projectileX, 0);
+            this.shakeTime = Math.max(2, 6 - this.bounceCount);
+            this.shakeIntensity = intensity;
+            UI.playSynthSound("impact");
+
+            return true; // Continuar simulação
+        } else {
+            // Velocidade muito baixa ou bounces esgotados → parar
+            this.projectileVy = 0;
+            this.projectileVx = 0;
+            return false; // Parar
+        }
+    },
+
     gameLoop() {
+        const dt = this.timeStep;
+
         if (this.isSimulating && !this.isPaused) {
-            this.currentTime += this.timeStep;
+            this.currentTime += dt;
+
+            // === SIMULAÇÃO EULER STEP-BY-STEP ===
+            // Aplicar gravidade à velocidade vertical
+            this.projectileVy -= this.currentGravity * dt;
+
+            // Atualizar posição
+            this.projectileX += this.projectileVx * dt;
+            this.projectileY += this.projectileVy * dt;
+
+            // Guardar ponto no rastro ativo
+            this.activeTrajectory.push({ x: this.projectileX, y: Math.max(0, this.projectileY) });
 
             const loopCfg = this.levels[this.currentLevel - 1];
 
             if (loopCfg && loopCfg.mode === "vetores") {
                 // Fase 5: Checar colisão com alvos flutuantes
                 this.checkFloatingTargetHit();
+
+                // Bounce no chão para fase de vetores
+                if (this.projectileY <= 0) {
+                    if (!this.handleGroundBounce()) {
+                        this.handleLanding();
+                    }
+                }
             } else {
                 // Fases normais: Checar colisão AABB com as caixas
+                const radiusPhys = (CONFIG.PROJECTILES[UI.selectedProjectile].radius) / Renderer.pixelsPerMeter;
+
                 this.crates.forEach(crate => {
                     if (crate.isBroken) return;
 
-                    const left = crate.x - crate.width / 2;
-                    const right = crate.x + crate.width / 2;
-                    const bottom = crate.y;
-                    const top = crate.y + crate.height;
+                    const side = this.checkProjectileCrateCollision(crate, radiusPhys);
+                    if (!side) return;
 
-                    const radiusPhys = (CONFIG.PROJECTILES[UI.selectedProjectile].radius) / Renderer.pixelsPerMeter;
-                    
-                    const projLeft = this.projectileX - radiusPhys;
-                    const projRight = this.projectileX + radiusPhys;
-                    const projBottom = this.projectileY - radiusPhys;
-                    const projTop = this.projectileY + radiusPhys;
+                    // Calcular velocidade de impacto
+                    const impactSpeed = Math.sqrt(this.projectileVx * this.projectileVx + this.projectileVy * this.projectileVy);
 
-                    if (projRight >= left && projLeft <= right && projTop >= bottom && projBottom <= top) {
+                    if (impactSpeed >= CONFIG.CRATE_BREAK_SPEED) {
+                        // Destruir a caixa
                         crate.isBroken = true;
 
-                        // Estilhaços, som e tremor
                         Renderer.createWoodSplinters(crate.x, crate.y + crate.height / 2);
                         UI.playSynthSound("woodBreak");
                         this.shakeTime = 10;
                         this.shakeIntensity = 10;
-
-                        // Adicionar pontos extras
                         UI.addScore(5);
 
                         const bubble = document.querySelector(".tip-bubble");
@@ -1045,26 +1229,58 @@ const MainApp = {
                             bubble.innerHTML = `💥 <b>CRAASH!</b> Caixa de madeira destruída! +5 pontos! 🪵`;
                         }
 
-                        // Checar se completou a fase ao quebrar o bloco
+                        // Reduzir velocidade do projétil ao destruir (absorção de energia)
+                        this.projectileVx *= 0.7;
+                        this.projectileVy *= 0.7;
+
                         this.checkVictory();
+                    } else {
+                        // Velocidade insuficiente para destruir → bounce na caixa
+                        if (side === 'left' || side === 'right') {
+                            this.projectileVx = -this.projectileVx * CONFIG.BOUNCE_RESTITUTION;
+                        } else {
+                            this.projectileVy = -this.projectileVy * CONFIG.BOUNCE_RESTITUTION;
+                        }
+                        this.bounceCount++;
+
+                        // Empurrar projétil para fora da caixa
+                        const pushDist = radiusPhys + 0.1;
+                        if (side === 'left') this.projectileX = (crate.x - crate.width / 2) - pushDist;
+                        else if (side === 'right') this.projectileX = (crate.x + crate.width / 2) + pushDist;
+                        else if (side === 'bottom') this.projectileY = crate.y - pushDist;
+                        else if (side === 'top') this.projectileY = (crate.y + crate.height) + pushDist;
+
+                        UI.playSynthSound("impact");
+                        this.shakeTime = 4;
+                        this.shakeIntensity = 4;
                     }
                 });
-            }
 
-            if (this.currentTime >= this.flightStats.flightTime) {
-                this.handleLanding();
-            } else {
-                const pos = Physics.getPositionAtTime(
-                    this.currentTime,
-                    this.currentSpeed,
-                    this.currentAngle,
-                    this.currentGravity
-                );
-                this.projectileX = pos.x;
-                this.projectileY = pos.y;
+                // Atualizar física das caixas (colapso gravitacional)
+                this.updateCratePhysics();
+
+                // Bounce no chão
+                if (this.projectileY <= 0) {
+                    if (!this.handleGroundBounce()) {
+                        this.handleLanding();
+                    }
+                }
+
+                // Segurança: parar imediatamente se o projétil saiu da tela (direita ou esquerda)
+                const canvasX = Renderer.launchX + (this.projectileX * Renderer.pixelsPerMeter);
+                if (canvasX > Renderer.canvas.width + 50 || canvasX < -100) {
+                    this.projectileVx = 0;
+                    this.projectileVy = 0;
+                    this.bounceCount = CONFIG.MAX_BOUNCES;
+                    this.handleLanding();
+                }
             }
         }
 
+        // Atualizar caixas mesmo quando não simulando (para completar colapso)
+        if (!this.isSimulating && this.crates.some(c => c.isFalling && !c.isBroken)) {
+            this.updateCratePhysics();
+        }
 
         this.drawScene();
         requestAnimationFrame(() => this.gameLoop());

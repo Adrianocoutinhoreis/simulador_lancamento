@@ -6,6 +6,16 @@ const CONFIG = {
     // 1 metro na física = X pixels na tela (ajustado dinamicamente para caber na tela)
     PIXELS_PER_METER: 8,
 
+    // Física de bounce (quique) do projétil
+    BOUNCE_RESTITUTION: 0.5,       // Coeficiente de restituição (0 = sem bounce, 1 = bounce perfeito)
+    BOUNCE_FRICTION: 0.85,         // Atrito horizontal aplicado a cada bounce
+    BOUNCE_MIN_VY: 0.3,            // Velocidade vertical mínima para considerar bounce (m/s)
+    MAX_BOUNCES: 5,                // Número máximo de quiques antes de parar
+
+    // Física das caixas (colapso gravitacional)
+    CRATE_RESTITUTION: 0.2,        // Coeficiente de restituição das caixas ao cair
+    CRATE_BREAK_SPEED: 3.0,        // Velocidade mínima de impacto para destruir uma caixa (m/s)
+
     // Gravidades dos planetas/mundos (m/s²)
     PLANETS: {
         terra: {
@@ -88,8 +98,8 @@ const CONFIG = {
             id: "foguete",
             name: "Mini Bomba 💣",
             emoji: "💣",
-            radius: 5,
-            mass: 0.10,
+            radius: 0.1,
+            mass: 0.1,
             trailColor: "rgba(255, 165, 0, 0.9)",
             impactType: "smoke",
             impactColor: "#ff8c00",
